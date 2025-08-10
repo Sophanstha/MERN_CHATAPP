@@ -61,7 +61,7 @@ const EditUserDetail = ({onClose,data}) => {
     const handleSubmit = async(e)=>{
         e.preventDefault()
         e.stopPropagation()
-        console.log("hello i am submit");
+        // console.log("hello i am submit");
         
         const response = await axios.patch(urls,{
             name : user.name,

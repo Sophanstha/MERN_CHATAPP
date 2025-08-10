@@ -7,7 +7,7 @@ import { UserDetail } from "../controller/UserDetail.js";
 import { logout } from "../controller/logout.js";
 import { updateUserDetail } from "../controller/upDateUserDetaail.js";
 import { SearchUser } from "../controller/SearchUser.js";
-
+import { blockUser,unblockUser,getBlockedUsers } from "../controller/blockuser.js";
 const UserRouter = Router();
 
 UserRouter.post("/register",registerUser)
@@ -17,4 +17,9 @@ UserRouter.get("/user-detail",UserDetail)
 UserRouter.get("/logout",logout)
 UserRouter.patch("/updateuser",updateUserDetail)
 UserRouter.post("/search",SearchUser)
+
+// blockuser
+UserRouter.post('/block', blockUser);
+UserRouter.post('/unblock', unblockUser);
+UserRouter.get('/blocked-users', getBlockedUsers);
 export default UserRouter;

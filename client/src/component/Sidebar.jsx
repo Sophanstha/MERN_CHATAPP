@@ -10,10 +10,12 @@ import { useSelector } from "react-redux";
 import EditUserDetail from "./EditUserDetail";
 import Divider from "./Divider";
 import SearchUser from "./SearchUser";
+import Logout from "./Logout";
 const Sidebar = () => {
   const user = useSelector((state) => state?.user);
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [openSearchUser, setOpenSearchUser] = useState(false);
+  const [openLogout, setOpenLogout] = useState(false);
     const [allUser,setAllUser] = useState([]);
     const socketConnection = useSelector(
         (state) => state?.user?.socketConnection
@@ -91,6 +93,7 @@ const Sidebar = () => {
             />
           </button>
           <button
+            onClick={()=>setOpenLogout(true)}
             title="logout"
             className="w-12 h-12 flex justify-center items-center cursor-pointer hover:bg-slate-200 rounded"
           >
@@ -179,6 +182,11 @@ const Sidebar = () => {
       {openSearchUser && (
         <SearchUser onClose={() => setOpenSearchUser(false)} />
       )}
+      {
+        openLogout && (
+          <Logout onClose={() => setOpenLogout(false)} />
+        )
+      }
     </div>
   );
 };
