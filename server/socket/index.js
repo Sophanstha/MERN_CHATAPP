@@ -5,12 +5,13 @@ import { getUserDetailFromToken } from "../helper/getUserDetailFromToken.js";
 import { set } from "mongoose";
 import User from "../models/user.model.js";
 import { Conversation, Message } from "../models/converstion.model.js";
+import Group from "../models/group.model.js";
 import { getConversion } from "../helper/getConversion.js";
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173", // Allow frontend origin
+    origin: ["http://localhost:5173", "http://localhost:5174"],
     credentials: true, // Allow cookies
   },
 });
@@ -21,10 +22,22 @@ io.on("connection", async (socket) => {
   const token = socket.handshake.auth.token;
   // console.log("token",token);
   const user = await getUserDetailFromToken(token);
-  console.log(user);
-  socket.join(user?._id?.toString());
-  onlineUser.add(user?._id?.toString());
-  io.emit("onlineUser", Array.from(onlineUser));
+  if (user?._id) {
+    socket.join(user._id.toString());
+    onlineUser.add(user._id.toString());
+    io.emit("onlineUser", Array.from(onlineUser));
+
+    // Auto-join group rooms for this user
+    try {
+      const userGroups = await Group.find({ members: user._id }).select("_id");
+      userGroups.forEach((g) => {
+        socket.join(g._id.toString());
+      });
+    } catch (e) {
+      console.error("Error auto-joining groups:", e);
+    }
+  }
+
   socket.on("message-page", async (userId) => {
     // console.log("message-page",userId);
     const userDetail = await User.findById(userId).select("-password");
@@ -46,12 +59,16 @@ io.on("connection", async (socket) => {
   }).populate('messages').sort({ updatedAt: -1 });
 
   // Filter out messages from blocked users
-  const filteredMessages = getConversationMessage?.messages.filter(msg => {
-    return !user.blockedUsers.includes(msg.msgByUserId) &&
-           !(msg.recipient === user._id && sender.blockedUsers?.includes(user._id));
-  });
+  const userBlocked = (user?.blockedUsers || []).map(id => id.toString());
+  const receiverUser = await User.findById(userId);
+  const receiverBlocked = (receiverUser?.blockedUsers || []).map(id => id.toString());
 
-  socket.emit("message", filteredMessages || []);
+  const filteredMessages = getConversationMessage?.messages?.filter(msg => {
+    const msgSenderId = msg?.msgByUserId?.toString();
+    return !userBlocked.includes(msgSenderId) && !receiverBlocked.includes(user?._id?.toString());
+  }) || [];
+
+  socket.emit("message", filteredMessages);
   });
 
   // //
@@ -104,9 +121,12 @@ io.on("connection", async (socket) => {
     const sender = await User.findById(data.sender);
     const receiver = await User.findById(data.receiver);
 
+    const senderBlocked = (sender?.blockedUsers || []).map(id => id.toString());
+    const receiverBlocked = (receiver?.blockedUsers || []).map(id => id.toString());
+
     if (
-      sender.blockedUsers.includes(data.receiver) ||
-      receiver.blockedUsers.includes(data.sender)
+      senderBlocked.includes(data.receiver?.toString()) ||
+      receiverBlocked.includes(data.sender?.toString())
     ) {
       return socket.emit("message-error", "You cannot message this user");
     }
@@ -224,8 +244,111 @@ io.on("connection", async (socket) => {
     io.to(currentUserId).emit("user-unblocked", unblockedUserId);
   });
 
+  // ===================== GROUP CHAT SOCKET EVENTS =====================
+  socket.on("join-group", (groupId) => {
+    if (groupId) {
+      socket.join(groupId.toString());
+    }
+  });
+
+  socket.on("group-page", async (groupId) => {
+    try {
+      if (!groupId) return;
+      socket.join(groupId.toString());
+
+      const group = await Group.findById(groupId)
+        .populate("members", "name email profile_pic")
+        .populate("admin", "name email profile_pic")
+        .populate({
+          path: "messages",
+          populate: { path: "msgByUserId", select: "name profile_pic email" },
+        });
+
+      if (group) {
+        socket.emit("group-data", {
+          _id: group._id,
+          name: group.name,
+          profile_pic: group.profile_pic,
+          admin: group.admin,
+          members: group.members,
+        });
+        socket.emit("group-messages", group.messages || []);
+      }
+    } catch (err) {
+      console.error("Error in group-page event:", err);
+    }
+  });
+
+  socket.on("new-group-message", async (data) => {
+    try {
+      if (!data?.groupId || !data?.sender) return;
+
+      const group = await Group.findById(data.groupId);
+      if (!group) return;
+
+      // Validate membership
+      const isMember = group.members.some(
+        (m) => m.toString() === data.sender.toString()
+      );
+      if (!isMember) {
+        return socket.emit("message-error", "You are not a member of this group");
+      }
+
+      const message = new Message({
+        text: data.text || "",
+        imageUrl: data.imageUrl || "",
+        videoUrl: data.videoUrl || "",
+        msgByUserId: data.sender,
+      });
+      const savedMessage = await message.save();
+
+      await Group.findByIdAndUpdate(data.groupId, {
+        $push: { messages: savedMessage._id },
+      });
+
+      const populatedMessage = await Message.findById(savedMessage._id).populate(
+        "msgByUserId",
+        "name profile_pic email"
+      );
+
+      // Emit to everyone in the group room
+      io.to(data.groupId.toString()).emit("group-message", populatedMessage);
+
+      // Notify all member personal rooms for sidebar preview
+      group.members.forEach((memberId) => {
+        io.to(memberId.toString()).emit("group-sidebar-update", {
+          groupId: data.groupId,
+          lastMsg: populatedMessage,
+          updatedAt: new Date(),
+        });
+      });
+    } catch (err) {
+      console.error("Error in new-group-message event:", err);
+    }
+  });
+
+  socket.on("group-created", async (groupId) => {
+    try {
+      if (!groupId) return;
+      const group = await Group.findById(groupId)
+        .populate("members", "name email profile_pic")
+        .populate("admin", "name email profile_pic");
+
+      if (group) {
+        group.members.forEach((member) => {
+          io.to(member._id.toString()).emit("new-group-added", group);
+        });
+      }
+    } catch (err) {
+      console.error("Error in group-created event:", err);
+    }
+  });
+
   socket.on("disconnect", () => {
-    onlineUser.delete(user?._id);
+    if (user?._id) {
+      onlineUser.delete(user._id.toString());
+      io.emit("onlineUser", Array.from(onlineUser));
+    }
     console.log("Client disconnected", socket.id);
   });
 });

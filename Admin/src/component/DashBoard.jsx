@@ -11,15 +11,11 @@ const DashBoard = () => {
   const [section, setSection] = useState('users'); // default section
 
   // Check for cookie (e.g., auth token) on mount
-//  useEffect(() => {
-//     const token = Cookies.get('token'); // get cookie by name
-//     if (!token) {
-//       nav('/');
-//     }
-//   }, [nav]);
-if(data== null){
-  nav('/');
-}
+  useEffect(() => {
+    if (!data) {
+      nav('/');
+    }
+  }, [data, nav]);
 
   return (
     <div className="flex min-h-screen">

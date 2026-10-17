@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -7,6 +8,7 @@ import multer from "multer";
 import cookieParser from "cookie-parser";
 import { app, server } from "./socket/index.js"; 
 import AdminRouter from "./routes/AdminRoutes.js";
+import GroupRouter from "./routes/groupRoutes.js";
 
 // Initialize dotenv
 dotenv.config();
@@ -40,6 +42,7 @@ connectedDb()
 // ✅ Routes
 app.use("/api/user", upload.single("file"), UserRouter);
 app.use("/api/admin",upload.single("file"),AdminRouter);
+app.use("/api/group", upload.single("file"), GroupRouter);
 // ✅ Set Port
 const port = process.env.PORT || 3000;
 server.listen(port, () => {

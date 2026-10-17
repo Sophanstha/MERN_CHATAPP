@@ -4,23 +4,25 @@ import { useNavigate } from "react-router-dom";
 import uploadFile from "../helper/Uploadfile";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 const AdminRegister = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [photo, setPhoto] = useState(null);
   const navigate = useNavigate();
   const url = "http://localhost:3000/api/Admin/register";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!photo) return alert("Please upload a profile picture.");
-
-    const uploaded = await uploadFile(photo);
-    if (!uploaded?.secure_url) {
-      console.error("Upload failed:", uploaded);
-      return;
+    let uploadedPhotoUrl = "";
+    if (photo) {
+      const uploaded = await uploadFile(photo);
+      if (uploaded?.secure_url) {
+        uploadedPhotoUrl = uploaded.secure_url;
+      }
     }
 
     try {
@@ -28,7 +30,7 @@ const AdminRegister = () => {
         name : name,
         email : email,
         password : password,
-        profile_pic: uploaded.secure_url,
+        profile_pic: uploadedPhotoUrl,
       });
 
       toast.success("Admin registered successfully!");
@@ -37,7 +39,7 @@ const AdminRegister = () => {
         setEmail("");
         setPassword("");
         setPhoto(null);
-        navigate("");
+        navigate("/");
       }
     } catch (err) {
       toast.error(err?.response?.data?.message || "Registration failed");
@@ -96,15 +98,26 @@ const AdminRegister = () => {
             <label htmlFor="password" className="block font-medium mb-1">
               Password:
             </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-4 py-2 rounded-md bg-gray-800 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
+            <div className="relative flex items-center">
+              <input
+                type={showPassword ? "text" : "password"}
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-4 py-2 pr-11 rounded-md bg-gray-800 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 text-gray-400 hover:text-white cursor-pointer focus:outline-none"
+                title={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+              </button>
+            </div>
           </div>
         </div>
 

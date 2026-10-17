@@ -32,55 +32,57 @@ const SearchUser = ({onClose}) => {
     
 
   return (
-    <div className='fixed top-0 bottom-0 left-0 right-0 bg-slate-700 bg-opacity-40 p-2 z-10'>
-    <div className='w-full max-w-lg mx-auto mt-10'>
-        {/**input search user */}
-        <div className='bg-white rounded h-14 overflow-hidden flex '>
-            <input 
-                type='text'
-                placeholder='Search user by name, email....'
-                className='w-full outline-none py-1 h-full px-4'
-                // onChange={(e)=>setSearch(e.target.value)}
-                // value={search}
-                onChange={(e)=> setSearch(e.target.value)} 
-                value={search}
-                
+    <div className='fixed inset-0 bg-slate-900/60 backdrop-blur-xs p-4 z-50 flex flex-col items-center justify-start pt-16'>
+      <div className='w-full max-w-lg mx-auto relative'>
+        {/* Input search user */}
+        <div className='bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl h-14 overflow-hidden flex items-center shadow-2xl transition-colors'>
+          <input 
+            type='text'
+            placeholder='Search user by name, email...'
+            className='w-full outline-none py-1 h-full px-5 text-slate-800 dark:text-white bg-transparent placeholder:text-gray-400 text-sm'
+            onChange={(e) => setSearch(e.target.value)} 
+            value={search}
+            autoFocus
           />
-            <div className='h-14 w-14 flex justify-center items-center'>
-                <IoSearchOutline size={25}/>
+          <div className='h-14 w-14 flex justify-center items-center text-slate-400 dark:text-slate-500'>
+            <IoSearchOutline size={22}/>
+          </div>
+        </div>
+
+        {/* Search Results */}
+        <div className='bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 mt-3 w-full p-3 rounded-2xl max-h-[65vh] overflow-y-auto scrollbar shadow-2xl transition-colors'>
+          {searchUser.length === 0 && !loading && (
+            <p className='text-center py-6 text-sm text-slate-400 dark:text-slate-500'>
+              {search ? "No user found with that query." : "Type a name or email to search."}
+            </p>
+          )}
+          {loading && (
+            <div className='py-6 flex justify-center items-center'>
+              <Loading/>
             </div>
+          )}
+          {searchUser.length !== 0 && !loading && (
+            searchUser.map((u) => (
+              <UserSearchCard 
+                key={u._id}
+                user={u}
+                onClose={onClose}
+              />   
+            ))
+          )}
         </div>
-        <div className='bg-white mt-2 w-full p-4 rounded h-full max-h-[70vh] overflow-scroll'>
-            {/* if no user found */}
-            {
-                searchUser.length === 0 && !loading && (
-                    <p className='text-center text-slate-500'>no user found!</p>
-                )
-            }
-            {
-                loading && (
-                    <Loading/>
-                )
-            }
-            {
-                 searchUser.length !==0 && !loading && (
-                    searchUser.map((user,index)=>(
-                     <UserSearchCard 
-                     user={user}
-                     onClose={onClose}
-                     />   
-                    ))
-                )
-            }
-        </div>
-        </div>
-        <div className='absolute top-0 right-0 text-2xl p-2 lg:text-4xl hover:text-white' onClick={onClose}>
-            <button>
-                <IoClose/>
-            </button>
-        </div>
-        </div>
-  )
+
+        {/* Close Button */}
+        <button 
+          className='absolute -top-12 right-0 text-white/80 hover:text-white text-3xl cursor-pointer p-1 transition-colors'
+          onClick={onClose}
+          title="Close search"
+        >
+          <IoClose size={28}/>
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default SearchUser

@@ -1,12 +1,12 @@
 import mongoose from "mongoose";
 
-// const MANGODB_URI = "mongodb+srv://sophans:sophan1234@cluster0.w1yuh.mongodb.net";
-const MANGODB_URI = "mongodb://localhost:27017";
-const db_name = "chatapp";
-
 const connectedDb = async () => {
   try {
-    const connectionInstance = await mongoose.connect(`${MANGODB_URI}/${db_name}`);
+    const mongoUri = (process.env.MONGODB_URI || process.env.MANGODB_URI || "mongodb://localhost:27017").trim();
+    const dbName = process.env.DB_NAME || "chatApp";
+    const connectionString = mongoUri.endsWith("/") ? `${mongoUri}${dbName}` : `${mongoUri}/${dbName}`;
+
+    const connectionInstance = await mongoose.connect(connectionString);
 
     console.log("Db connected at:", connectionInstance.connection.host);
   } catch (error) {

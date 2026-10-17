@@ -29,21 +29,21 @@ const Logout = ({ onClose, onLogout }) => {
 
     }
   return (
-    <div className='fixed inset-0 bg-transparent bg-opacity-40 flex justify-center items-center z-50'>
-      <div className='bg-white rounded-2xl shadow-lg p-8 w-[90%] max-w-md text-center'>
-        <h3 className='text-xl font-semibold mb-6 text-gray-800'>Do you want to logout?</h3>
-        <div className='flex justify-center gap-6'>
+    <div className='fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex justify-center items-center z-50 p-4'>
+      <div className='bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-2xl p-8 w-[90%] max-w-md text-center text-slate-800 dark:text-white transition-colors'>
+        <h3 className='text-xl font-semibold mb-6 text-slate-800 dark:text-white'>Do you want to logout?</h3>
+        <div className='flex justify-center gap-4'>
           <button
             onClick={handleLogout}
-            className='px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition'
+            className='px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition shadow cursor-pointer font-medium text-sm'
           >
-            Yes
+            Yes, Logout
           </button>
           <button
             onClick={onClose}
-            className='px-6 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition'
+            className='px-6 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl transition cursor-pointer font-medium text-sm'
           >
-            No
+            Cancel
           </button>
         </div>
       </div>

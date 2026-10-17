@@ -40,6 +40,10 @@ export async function AdminRegister(request, response) {
     });
 
   } catch (error) {
-   console.log("Error:", error);
+    console.log("Error:", error);
+    return response.status(500).json({
+      message: error.message || "Internal server error",
+      error: true,
+    });
   }
 }

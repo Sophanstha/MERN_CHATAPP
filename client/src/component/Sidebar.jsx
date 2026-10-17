@@ -1,192 +1,412 @@
 import React, { useEffect, useState } from "react";
 import { IoChatbubbleEllipses } from "react-icons/io5";
-import { FaUserPlus } from "react-icons/fa";
+import { FaUserPlus, FaUsers } from "react-icons/fa";
 import { BiLogOut } from "react-icons/bi";
 import { FiArrowUpLeft } from "react-icons/fi";
 import { FaImage, FaVideo } from "react-icons/fa6";
+import { MdGroupAdd } from "react-icons/md";
 import Avatar from "./Avatar";
 import { NavLink } from "react-router-dom";
 import { useSelector } from "react-redux";
 import EditUserDetail from "./EditUserDetail";
-import Divider from "./Divider";
 import SearchUser from "./SearchUser";
 import Logout from "./Logout";
+import ThemeToggle from "./ThemeToggle";
+import CreateGroupModal from "./CreateGroupModal";
+import axios from "axios";
+
 const Sidebar = () => {
   const user = useSelector((state) => state?.user);
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [openSearchUser, setOpenSearchUser] = useState(false);
+  const [openCreateGroup, setOpenCreateGroup] = useState(false);
   const [openLogout, setOpenLogout] = useState(false);
-    const [allUser,setAllUser] = useState([]);
-    const socketConnection = useSelector(
-        (state) => state?.user?.socketConnection
-      );
-      useEffect(()=>{
-        if(socketConnection){
-            socketConnection.emit('sidebar',user?._id);
-            socketConnection.on('conversion',(data)=>{
-              // console.log("conversionData",data);
-              const conversionUserData = data?.map((uconv,index)=>{
-                if(uconv?.sender?._id === uconv?.receiver?._id){
-                  return{
-                    ...uconv,
-                    userDetails : uconv?.sender
-                  }
-                }
-                else if(uconv?.receiver._id !== user._id){
-                  return{
-                    ...uconv,
-                    userDetails : uconv?.receiver
-                  }
-                }
-                else{
-                  return{
-                    ...uconv,
-                    userDetails : uconv?.sender
 
-                  }
-                }
-              })
-              setAllUser(conversionUserData);
-            })
-        
-        }
-    },[socketConnection,user])
-  
-  
-    return (
-    <div className="w-full h-full flex bg-white">
-      {/* Sidebar */}
-      <div className="bg-slate-100 w-12 h-full rounded-tr-lg rounded-br-lg py-5 text-slate-600 flex flex-col justify-between">
-        <div>
+  const [allUser, setAllUser] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'direct' | 'groups'
+
+  const socketConnection = useSelector((state) => state?.user?.socketConnection);
+
+  // Fetch 1-to-1 conversations via socket
+  useEffect(() => {
+    if (socketConnection && user?._id) {
+      socketConnection.emit("sidebar", user?._id);
+
+      const handleConversion = (data) => {
+        const conversionUserData = data?.map((uconv) => {
+          if (uconv?.sender?._id === uconv?.receiver?._id) {
+            return {
+              ...uconv,
+              userDetails: uconv?.sender,
+            };
+          } else if (uconv?.receiver?._id !== user?._id) {
+            return {
+              ...uconv,
+              userDetails: uconv?.receiver,
+            };
+          } else {
+            return {
+              ...uconv,
+              userDetails: uconv?.sender,
+            };
+          }
+        });
+        setAllUser(conversionUserData || []);
+      };
+
+      socketConnection.on("conversion", handleConversion);
+
+      return () => {
+        socketConnection.off("conversion", handleConversion);
+      };
+    }
+  }, [socketConnection, user]);
+
+  // Fetch User Groups
+  const fetchMyGroups = async () => {
+    try {
+      const res = await axios.get("http://localhost:3000/api/group/my-groups", {
+        withCredentials: true,
+      });
+      if (res.data?.success) {
+        setGroups(res.data.data || []);
+      }
+    } catch (e) {
+      console.error("Error fetching groups:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (user?._id) {
+      fetchMyGroups();
+    }
+  }, [user?._id]);
+
+  // Socket listeners for group updates
+  useEffect(() => {
+    if (socketConnection) {
+      const handleGroupUpdate = (data) => {
+        setGroups((prev) =>
+          prev.map((g) =>
+            g._id === data.groupId
+              ? { ...g, lastMsg: data.lastMsg, updatedAt: data.updatedAt || new Date() }
+              : g
+          )
+        );
+      };
+
+      const handleNewGroupAdded = (newGroup) => {
+        setGroups((prev) => {
+          const exists = prev.some((g) => g._id === newGroup._id);
+          if (exists) return prev;
+          return [newGroup, ...prev];
+        });
+      };
+
+      socketConnection.on("group-sidebar-update", handleGroupUpdate);
+      socketConnection.on("new-group-added", handleNewGroupAdded);
+
+      return () => {
+        socketConnection.off("group-sidebar-update", handleGroupUpdate);
+        socketConnection.off("new-group-added", handleNewGroupAdded);
+      };
+    }
+  }, [socketConnection]);
+
+  // Prepare combined items based on activeTab
+  const combinedList = () => {
+    let items = [];
+
+    if (activeTab === "all" || activeTab === "direct") {
+      const directItems = allUser.map((conv) => ({
+        ...conv,
+        type: "direct",
+        timestamp: conv?.lastMsg?.createdAt || 0,
+      }));
+      items = [...items, ...directItems];
+    }
+
+    if (activeTab === "all" || activeTab === "groups") {
+      const groupItems = groups.map((g) => ({
+        ...g,
+        type: "group",
+        timestamp: g?.lastMsg?.createdAt || g?.updatedAt || 0,
+      }));
+      items = [...items, ...groupItems];
+    }
+
+    // Sort by most recent activity
+    return items.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  };
+
+  const currentItems = combinedList();
+
+  return (
+    <div className="w-full h-full flex bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 transition-colors duration-200">
+      {/* Mini Icon Bar */}
+      <div className="bg-slate-100 dark:bg-slate-950 w-14 h-full py-5 text-slate-600 dark:text-slate-300 flex flex-col justify-between items-center border-r border-gray-200 dark:border-slate-800 transition-colors">
+        <div className="flex flex-col items-center gap-2">
           <NavLink
+            to="/home"
             className={({ isActive }) =>
-              `w-12 h-12 flex justify-center items-center cursor-pointer hover:bg-slate-200 rounded ${
-                isActive && "bg-slate-200"
+              `w-10 h-10 flex justify-center items-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors ${
+                isActive ? "bg-slate-200 dark:bg-slate-800 text-teal-600 dark:text-teal-400" : ""
               }`
             }
-            title="chat"
+            title="Chat"
           >
-            <IoChatbubbleEllipses size={20} />
+            <IoChatbubbleEllipses size={22} />
           </NavLink>
-          <NavLink
-            className="w-12 h-12 flex justify-center items-center cursor-pointer hover:bg-slate-200 rounded"
-            title="add friend"
+          <button
+            className="w-10 h-10 flex justify-center items-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            title="Add Friend"
             onClick={() => setOpenSearchUser(true)}
           >
             <FaUserPlus size={20} />
-          </NavLink>
+          </button>
+          <button
+            className="w-10 h-10 flex justify-center items-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            title="Create Group"
+            onClick={() => setOpenCreateGroup(true)}
+          >
+            <MdGroupAdd size={22} />
+          </button>
+
+          <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+            <ThemeToggle className="w-9 h-9" />
+          </div>
         </div>
 
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center gap-3">
           <button
-            className="mx-auto"
-            title="User Name"
+            className="cursor-pointer hover:opacity-80 transition-opacity"
+            title={user?.name || "Profile"}
             onClick={() => setEditUserOpen(true)}
           >
             <Avatar
-              width={40}
-              height={40}
-            userid={user?._id}
-              name={user.name}
+              width={38}
+              height={38}
+              userid={user?._id}
+              name={user?.name}
               profile_pic={user?.profile_pic}
-              userId="1"
             />
           </button>
           <button
-            onClick={()=>setOpenLogout(true)}
-            title="logout"
-            className="w-12 h-12 flex justify-center items-center cursor-pointer hover:bg-slate-200 rounded"
+            onClick={() => setOpenLogout(true)}
+            title="Logout"
+            className="w-10 h-10 flex justify-center items-center cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-500 hover:text-red-500 rounded-xl transition-colors"
           >
-            <span className="-ml-2">
-              <BiLogOut size={20} />
-            </span>
+            <BiLogOut size={22} />
           </button>
         </div>
       </div>
 
-      {/* Messages Section */}
-      <div className="w-full bg-gray-100">
-        <div className="h-16 flex items-center">
-          <h2 className="text-xl font-bold p-4 text-slate-800">Message</h2>
+      {/* Conversations List Section */}
+      <div className="flex-1 bg-white dark:bg-slate-900 flex flex-col h-full overflow-hidden transition-colors">
+        {/* Header & New Group Button */}
+        <div className="h-16 px-4 flex items-center justify-between border-b border-gray-100 dark:border-slate-800">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Messages</h2>
+          <button
+            onClick={() => setOpenCreateGroup(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/60 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+            title="Create a new group"
+          >
+            <MdGroupAdd size={16} />
+            <span>New Group</span>
+          </button>
         </div>
-        <Divider />
 
-        <div className=' h-[calc(100vh-65px)] overflow-x-hidden overflow-y-auto scrollbar'>
-        {
-                        allUser.length === 0 && (
-                            <div className='mt-12'>
-                                <div className='flex justify-center items-center my-4 text-slate-500'>
-                                    <FiArrowUpLeft
-                                        size={50}
-                                    />
-                                </div>
-                                <p className='text-lg text-center text-slate-400'>Explore users to start a conversation with.</p>    
-                            </div>
-                        )
-                    }
-   {allUser.map((conv, index) => {
-    return (
-        <NavLink 
-            to={`/home/${conv?.userDetails?._id}`} 
-            key={conv?._id} 
-            className={({ isActive }) => 
-                `flex items-center gap-2 py-3 px-2 border border-transparent rounded hover:border-blue-400 hover:bg-slate-300 cursor-pointer ${
-                    isActive ? "bg-blue-200 text-white" : ""
-                }`
+        {/* Filter Tabs */}
+        <div className="px-3 pt-2 pb-1 flex gap-1.5 border-b border-gray-100 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setActiveTab("all")}
+            className={`px-3 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+              activeTab === "all"
+                ? "bg-teal-600 text-white"
+                : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("direct")}
+            className={`px-3 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+              activeTab === "direct"
+                ? "bg-teal-600 text-white"
+                : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            Direct
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("groups")}
+            className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+              activeTab === "groups"
+                ? "bg-teal-600 text-white"
+                : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <span>Groups</span>
+            {groups.length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-teal-800 dark:bg-teal-300 dark:text-slate-900 text-white">
+                {groups.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-x-hidden overflow-y-auto scrollbar px-2 py-2">
+          {currentItems.length === 0 && (
+            <div className="mt-12 text-center px-4">
+              <div className="flex justify-center items-center my-4 text-slate-400 dark:text-slate-500">
+                <FiArrowUpLeft size={44} />
+              </div>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                {activeTab === "groups"
+                  ? "No groups yet. Click 'New Group' to create one!"
+                  : "Explore users or create a group to start a conversation."}
+              </p>
+            </div>
+          )}
+
+          {currentItems.map((item) => {
+            const isGroup = item.type === "group";
+
+            if (isGroup) {
+              return (
+                <NavLink
+                  to={`/home/group/${item._id}`}
+                  key={`group-${item._id}`}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 p-2.5 my-1 rounded-xl transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-teal-50 dark:bg-slate-800 border-l-4 border-teal-500 shadow-sm"
+                        : "hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                    }`
+                  }
+                >
+                  <div className="flex-shrink-0">
+                    {item.profile_pic ? (
+                      <img
+                        src={item.profile_pic}
+                        alt={item.name}
+                        className="w-10 h-10 rounded-xl object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                        <FaUsers size={20} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-100 truncate">
+                        {item.name}
+                      </h3>
+                      <span className="text-[10px] text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 px-1.5 py-0.5 rounded-md font-medium">
+                        Group
+                      </span>
+                    </div>
+                    <div className="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1 mt-0.5">
+                      {item.lastMsg?.imageUrl && (
+                        <span className="flex items-center gap-1 text-teal-600 dark:text-teal-400">
+                          <FaImage size={12} />
+                          {!item.lastMsg?.text && <span>Image</span>}
+                        </span>
+                      )}
+                      {item.lastMsg?.videoUrl && (
+                        <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
+                          <FaVideo size={12} />
+                          {!item.lastMsg?.text && <span>Video</span>}
+                        </span>
+                      )}
+                      <p className="truncate">
+                        {item.lastMsg?.msgByUserId?.name
+                          ? `${item.lastMsg.msgByUserId.name}: ${item.lastMsg.text || ""}`
+                          : item.lastMsg?.text || `${item.members?.length || 0} members`}
+                      </p>
+                    </div>
+                  </div>
+                </NavLink>
+              );
             }
-        >
-            <div>
-                <Avatar
-                    profile_pic={conv?.userDetails?.profile_pic}
-                    name={conv?.userDetails?.name}
+
+            // Direct 1-on-1 chat item
+            return (
+              <NavLink
+                to={`/home/${item?.userDetails?._id}`}
+                key={`direct-${item?._id}`}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 p-2.5 my-1 rounded-xl transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-teal-50 dark:bg-slate-800 border-l-4 border-teal-500 shadow-sm"
+                      : "hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                  }`
+                }
+              >
+                <div className="flex-shrink-0">
+                  <Avatar
+                    profile_pic={item?.userDetails?.profile_pic}
+                    name={item?.userDetails?.name}
                     width={40}
                     height={40}
-                />    
-            </div>
-            <div>
-                <h3 className='text-ellipsis line-clamp-1 font-semibold text-base'>{conv?.userDetails?.name}</h3>
-                <div className='text-slate-500 text-xs flex items-center gap-1'>
-                    <div className='flex items-center gap-1'>
-                        {conv?.lastMsg?.imageUrl && (
-                            <div className='flex items-center gap-1'>
-                                <span><FaImage/></span>
-                                {!conv?.lastMsg?.text && <span>Image</span>} 
-                            </div>
-                        )}
-                        {conv?.lastMsg?.videoUrl && (
-                            <div className='flex items-center gap-1'>
-                                <span><FaVideo/></span>
-                                {!conv?.lastMsg?.text && <span>Video</span>}
-                            </div>
-                        )}
-                    </div>
-                    <p className='text-ellipsis line-clamp-1'>{conv?.lastMsg?.text}</p>
+                    userid={item?.userDetails?._id}
+                  />
                 </div>
-            </div>
-            {Boolean(conv?.unseenMsg) && (
-                <p className='text-xs w-6 h-6 flex justify-center items-center ml-auto p-1 bg-red-200 text-white font-semibold rounded-full'>{conv?.unseenMsg}</p>
-            )}
-        </NavLink>
-    );
-})
-
-                    }          
-
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-100 truncate">
+                    {item?.userDetails?.name}
+                  </h3>
+                  <div className="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1 mt-0.5">
+                    {item?.lastMsg?.imageUrl && (
+                      <span className="flex items-center gap-1 text-teal-600 dark:text-teal-400">
+                        <FaImage size={12} />
+                        {!item?.lastMsg?.text && <span>Image</span>}
+                      </span>
+                    )}
+                    {item?.lastMsg?.videoUrl && (
+                      <span className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
+                        <FaVideo size={12} />
+                        {!item?.lastMsg?.text && <span>Video</span>}
+                      </span>
+                    )}
+                    <p className="truncate">{item?.lastMsg?.text}</p>
+                  </div>
+                </div>
+                {Boolean(item?.unseenMsg) && (
+                  <span className="text-xs min-w-5 h-5 px-1.5 flex justify-center items-center bg-teal-600 text-white font-bold rounded-full shadow-sm">
+                    {item?.unseenMsg}
+                  </span>
+                )}
+              </NavLink>
+            );
+          })}
         </div>
       </div>
 
-      {/* Edit User Detail Section */}
+      {/* Modals */}
       {editUserOpen && (
         <EditUserDetail onClose={() => setEditUserOpen(false)} data={user} />
       )}
       {openSearchUser && (
         <SearchUser onClose={() => setOpenSearchUser(false)} />
       )}
-      {
-        openLogout && (
-          <Logout onClose={() => setOpenLogout(false)} />
-        )
-      }
+      {openCreateGroup && (
+        <CreateGroupModal
+          onClose={() => setOpenCreateGroup(false)}
+          onGroupCreated={(newGroup) => {
+            setGroups((prev) => [newGroup, ...prev]);
+          }}
+        />
+      )}
+      {openLogout && (
+        <Logout onClose={() => setOpenLogout(false)} />
+      )}
     </div>
   );
 };

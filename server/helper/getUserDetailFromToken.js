@@ -9,7 +9,8 @@ export const getUserDetailFromToken = async (token)=>{
                 logout : true
             };
         }
-        const decode = jwt.verify(token, process.env.JWT_SECERT);
+        const secret = process.env.JWT_SECRET || process.env.JWT_SECERT || "12345";
+        const decode = jwt.verify(token, secret);
         const user = await User.findById(decode.userid);
 
         return user;
