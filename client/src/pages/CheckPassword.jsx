@@ -6,6 +6,7 @@ import Avatar from "../component/Avatar";
 import { useDispatch } from "react-redux";
 import { setToken } from "../redux/UserSlice";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { BACKEND_URL } from "../helper/apiUrl";
 
 const CheckPassword = () => {
   const [password, setPassword] = useState("");
@@ -28,7 +29,7 @@ const CheckPassword = () => {
 
     try {
       const response = await axios.post(
-        "http://localhost:3000/api/user/password",
+        `${BACKEND_URL}/api/user/password`,
         { password, userid: userId },
         { withCredentials: true } 
       );

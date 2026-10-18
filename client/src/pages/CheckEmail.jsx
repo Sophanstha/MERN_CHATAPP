@@ -3,12 +3,13 @@ import chatLogo from "../assets/chat-logo.png";
 import axios from 'axios';
 import toast from "react-hot-toast";
 import { Link, useNavigate } from "react-router-dom";
+import { BACKEND_URL } from "../helper/apiUrl";
 
 const CheckEmail = () => {
   const [email, setEmail] = useState("");
   const navigate = useNavigate();
   const handleSubmit = async (e) => {
-    const urls = "http://localhost:3000/api/user/email";
+    const urls = `${BACKEND_URL}/api/user/email`;
     e.preventDefault();
     e.stopPropagation();  
     try {

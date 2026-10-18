@@ -6,6 +6,7 @@ import { logout, setOnlineUser, setSocketConnection, setUser } from '../redux/Us
 import Sidebar from '../component/Sidebar';
 import chatLogo from "../assets/chat-logo.png";
 import io from "socket.io-client"; 
+import { BACKEND_URL } from '../helper/apiUrl';
 
 const Home = () => {
   const user = useSelector(state => state.user);
@@ -15,7 +16,7 @@ const Home = () => {
   const isBasePath = location.pathname === "/home" || location.pathname === "/home/";
 
   const fecthUserData = async()=>{
-    const urls = "http://localhost:3000/api/user/user-detail";
+    const urls = `${BACKEND_URL}/api/user/user-detail`;
     try {
       const response = await axios({
         method: 'GET',
@@ -38,7 +39,7 @@ const Home = () => {
 
   // socket connection 
   useEffect(()=>{
-    const socket = io('http://localhost:3000',{
+    const socket = io(BACKEND_URL,{
       auth : {
         token : localStorage.getItem('token')
       }

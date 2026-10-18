@@ -4,6 +4,7 @@ import { logout } from '../redux/UserSlice';
 import { useNavigate } from 'react-router-dom';
 import axios from "axios"
 import toast from "react-hot-toast";
+import { BACKEND_URL } from '../helper/apiUrl';
 
 const Logout = ({ onClose, onLogout }) => {
     const dispatch = useDispatch();
@@ -11,7 +12,7 @@ const Logout = ({ onClose, onLogout }) => {
 
     const handleLogout = async() => {
      try {
-      const res = await axios.get("http://localhost:3000/api/user/logout",{
+      const res = await axios.get(`${BACKEND_URL}/api/user/logout`,{
         withCredentials:true
       })
      if(!res){

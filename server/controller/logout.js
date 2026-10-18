@@ -1,8 +1,9 @@
 export const logout = async(req,res)=>{
     try {
         const cookieOption = {
-            http : true,
-            secure : true
+            httpOnly : true,
+            secure : process.env.NODE_ENV === "production",
+            sameSite : process.env.NODE_ENV === "production" ? "None" : "Lax"
         } 
         return res.cookie("token","",cookieOption).status(200).json({
             message : "Logged out successfully",

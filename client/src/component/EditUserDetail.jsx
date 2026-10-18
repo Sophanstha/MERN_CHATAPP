@@ -5,6 +5,8 @@ import toast from 'react-hot-toast'
 import axios from 'axios'
 import { useDispatch } from "react-redux";
 import { setUser as setUsers } from '../redux/UserSlice'
+import { BACKEND_URL } from '../helper/apiUrl';
+
 const EditUserDetail = ({onClose,data}) => {
     const [user,setUser] = useState({
         name : data?.name,
@@ -12,7 +14,7 @@ const EditUserDetail = ({onClose,data}) => {
     })
     const usedispatch = useDispatch();
     const uploadPhotoRef = useRef()
-    const urls = "http://localhost:3000/api/user/updateuser";
+    const urls = `${BACKEND_URL}/api/user/updateuser`;
 
     useEffect(()=>{
         setUser((preve)=>{

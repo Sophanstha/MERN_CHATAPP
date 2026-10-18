@@ -6,6 +6,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { BACKEND_URL } from "../helper/apiUrl";
 
 const GroupInfoModal = ({ group, onClose, onGroupUpdated }) => {
   const currentUser = useSelector((state) => state?.user);
@@ -18,7 +19,7 @@ const GroupInfoModal = ({ group, onClose, onGroupUpdated }) => {
     setLeaving(true);
     try {
       const res = await axios.post(
-        "http://localhost:3000/api/group/leave",
+        `${BACKEND_URL}/api/group/leave`,
         { groupId: group?._id },
         { withCredentials: true }
       );

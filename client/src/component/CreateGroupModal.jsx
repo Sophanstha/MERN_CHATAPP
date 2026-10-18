@@ -8,6 +8,7 @@ import Avatar from "./Avatar";
 import uploadFile from "../helper/Uploadfile";
 import Loading from "./Loading";
 import { useNavigate } from "react-router-dom";
+import { BACKEND_URL } from "../helper/apiUrl";
 
 const CreateGroupModal = ({ onClose, onGroupCreated }) => {
   const currentUser = useSelector((state) => state?.user);
@@ -28,7 +29,7 @@ const CreateGroupModal = ({ onClose, onGroupCreated }) => {
     const searchUsers = async () => {
       setLoading(true);
       try {
-        const response = await axios.post("http://localhost:3000/api/user/search", {
+        const response = await axios.post(`${BACKEND_URL}/api/user/search`, {
           search: search,
         });
         // Filter out current user from search results
@@ -100,7 +101,7 @@ const CreateGroupModal = ({ onClose, onGroupCreated }) => {
     try {
       const memberIds = selectedMembers.map((m) => m._id);
       const res = await axios.post(
-        "http://localhost:3000/api/group/create",
+        `${BACKEND_URL}/api/group/create`,
         {
           name: name.trim(),
           profile_pic: photoUrl,

@@ -4,8 +4,10 @@ import Loading from './Loading';
 import UserSearchCard from './UserCard';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { BACKEND_URL } from '../helper/apiUrl';
+
 const SearchUser = ({onClose}) => {
-    const URL = "http://localhost:3000/api/user/search";
+    const URL = `${BACKEND_URL}/api/user/search`;
     const [searchUser,setSearchUser]= useState([]);
     const [loading,setLoading] = useState(false);
     const [search,setSearch] = useState("");

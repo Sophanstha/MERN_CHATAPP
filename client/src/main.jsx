@@ -9,6 +9,7 @@ import CheckEmail from './pages/CheckEmail.jsx'
 import CheckPassword from './pages/CheckPassword.jsx'
 import Message from './component/Message.jsx'
 import GroupMessage from './component/GroupMessage.jsx'
+import AiMessage from './component/AiMessage.jsx'
 import AuthLayout from './Layout/AuthLayout.jsx'
 import { Provider } from 'react-redux'
 import { store } from './redux/store.js'
@@ -17,6 +18,7 @@ const router = createBrowserRouter(
   createRoutesFromElements(
     <Route path='/' element={<App/>}>
        <Route path="home" element={<Home />}>
+        <Route path="ai" element={<AiMessage />} />
         <Route path=":userId" element={<Message />} />
         <Route path="group/:groupId" element={<GroupMessage />} />
       </Route>

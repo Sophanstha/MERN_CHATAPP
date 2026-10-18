@@ -9,23 +9,61 @@ import Group from "../models/group.model.js";
 import { getConversion } from "../helper/getConversion.js";
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: ["http://localhost:5173", "http://localhost:5174"],
-    credentials: true, // Allow cookies
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  process.env.FRONTEND_URL,
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
+if (process.env.ALLOWED_ORIGINS) {
+  process.env.ALLOWED_ORIGINS.split(",").forEach((orig) => {
+    const trimmed = orig.trim();
+    if (trimmed && !allowedOrigins.includes(trimmed)) {
+      allowedOrigins.push(trimmed);
+    }
+  });
+}
+
+export const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (process.env.ORIGIN === "*" || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    if (origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+      return callback(null, true);
+    }
+    if (process.env.FRONTEND_URL && origin.replace(/\/+$/, "") === process.env.FRONTEND_URL.replace(/\/+$/, "")) {
+      return callback(null, true);
+    }
+    return callback(null, true);
   },
+  credentials: true,
+};
+
+const io = new Server(server, {
+  cors: corsOptions,
 });
 
 const onlineUser = new Set();
 io.on("connection", async (socket) => {
-  // console.log("Client connected", socket.id);
-  const token = socket.handshake.auth.token;
-  // console.log("token",token);
+  const cookieToken = socket.handshake?.headers?.cookie?.match(/token=([^;]+)/)?.[1];
+  const token = socket.handshake?.auth?.token || cookieToken || "";
   const user = await getUserDetailFromToken(token);
   if (user?._id) {
     socket.join(user._id.toString());
     onlineUser.add(user._id.toString());
     io.emit("onlineUser", Array.from(onlineUser));
+
+    // Send initial conversations to connected client
+    try {
+      const convs = await getConversion(user._id.toString());
+      socket.emit("conversion", convs);
+    } catch (e) {
+      console.error("Error sending initial conversions:", e);
+    }
 
     // Auto-join group rooms for this user
     try {
@@ -187,8 +225,11 @@ io.on("connection", async (socket) => {
 
   // handleeSibeBar
   socket.on("sidebar", async (curretId) => {
-    const conversion = await getConversion(curretId);
-    socket.emit("conversion", conversion);
+    const targetId = curretId || user?._id?.toString();
+    if (targetId) {
+      const conversion = await getConversion(targetId);
+      socket.emit("conversion", conversion);
+    }
   });
   // handleSeenUser
   socket.on("seen", async (msgByUserId) => {
@@ -210,6 +251,8 @@ io.on("connection", async (socket) => {
     const conversationSender = await getConversion(user?._id?.toString());
     const conversationReceiver = await getConversion(msgByUserId);
 
+    io.to(user?._id?.toString()).emit("conversion", conversationSender);
+    io.to(msgByUserId).emit("conversion", conversationReceiver);
     io.to(user?._id?.toString()).emit("conversation", conversationSender);
     io.to(msgByUserId).emit("conversation", conversationReceiver);
   });

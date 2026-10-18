@@ -5,6 +5,7 @@ import { BiLogOut } from "react-icons/bi";
 import { FiArrowUpLeft } from "react-icons/fi";
 import { FaImage, FaVideo } from "react-icons/fa6";
 import { MdGroupAdd } from "react-icons/md";
+import { HiSparkles } from "react-icons/hi2";
 import Avatar from "./Avatar";
 import { NavLink } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -14,6 +15,7 @@ import Logout from "./Logout";
 import ThemeToggle from "./ThemeToggle";
 import CreateGroupModal from "./CreateGroupModal";
 import axios from "axios";
+import { BACKEND_URL } from "../helper/apiUrl";
 
 const Sidebar = () => {
   const user = useSelector((state) => state?.user);
@@ -24,49 +26,73 @@ const Sidebar = () => {
 
   const [allUser, setAllUser] = useState([]);
   const [groups, setGroups] = useState([]);
-  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'direct' | 'groups'
+  const [activeTab, setActiveTab] = useState("all"); // 'all' | 'direct' | 'groups' | 'ai'
+  const [aiLastMsg, setAiLastMsg] = useState("");
 
   const socketConnection = useSelector((state) => state?.user?.socketConnection);
 
+  // Format and set conversation items ensuring string ID matching
+  const formatAndSetConversations = (data) => {
+    const currentUserId = user?._id?.toString();
+    const conversionUserData = data?.map((uconv) => {
+      const senderId = uconv?.sender?._id?.toString();
+      const receiverId = uconv?.receiver?._id?.toString();
+
+      if (senderId === receiverId) {
+        return {
+          ...uconv,
+          userDetails: uconv?.sender,
+        };
+      } else if (receiverId !== currentUserId) {
+        return {
+          ...uconv,
+          userDetails: uconv?.receiver,
+        };
+      } else {
+        return {
+          ...uconv,
+          userDetails: uconv?.sender,
+        };
+      }
+    });
+    setAllUser(conversionUserData || []);
+  };
+
+  // HTTP fallback to fetch conversations immediately on load
+  const fetchMyConversations = async () => {
+    try {
+      const res = await axios.get(`${BACKEND_URL}/api/user/conversations`, {
+        withCredentials: true,
+      });
+      if (res.data?.success) {
+        formatAndSetConversations(res.data.data || []);
+      }
+    } catch (e) {
+      console.error("Error fetching conversations via HTTP:", e);
+    }
+  };
+
   // Fetch 1-to-1 conversations via socket
   useEffect(() => {
-    if (socketConnection && user?._id) {
-      socketConnection.emit("sidebar", user?._id);
+    if (socketConnection) {
+      if (user?._id) {
+        socketConnection.emit("sidebar", user._id);
+      }
 
-      const handleConversion = (data) => {
-        const conversionUserData = data?.map((uconv) => {
-          if (uconv?.sender?._id === uconv?.receiver?._id) {
-            return {
-              ...uconv,
-              userDetails: uconv?.sender,
-            };
-          } else if (uconv?.receiver?._id !== user?._id) {
-            return {
-              ...uconv,
-              userDetails: uconv?.receiver,
-            };
-          } else {
-            return {
-              ...uconv,
-              userDetails: uconv?.sender,
-            };
-          }
-        });
-        setAllUser(conversionUserData || []);
-      };
-
-      socketConnection.on("conversion", handleConversion);
+      socketConnection.on("conversion", formatAndSetConversations);
+      socketConnection.on("conversation", formatAndSetConversations);
 
       return () => {
-        socketConnection.off("conversion", handleConversion);
+        socketConnection.off("conversion", formatAndSetConversations);
+        socketConnection.off("conversation", formatAndSetConversations);
       };
     }
-  }, [socketConnection, user]);
+  }, [socketConnection, user?._id]);
 
   // Fetch User Groups
   const fetchMyGroups = async () => {
     try {
-      const res = await axios.get("http://localhost:3000/api/group/my-groups", {
+      const res = await axios.get(`${BACKEND_URL}/api/group/my-groups`, {
         withCredentials: true,
       });
       if (res.data?.success) {
@@ -77,9 +103,26 @@ const Sidebar = () => {
     }
   };
 
+  // Fetch AI conversation preview
+  const fetchAiPreview = async () => {
+    try {
+      const res = await axios.get(`${BACKEND_URL}/api/ai/history`, {
+        withCredentials: true,
+      });
+      if (res.data?.success && res.data.data?.length > 0) {
+        const last = res.data.data[res.data.data.length - 1];
+        setAiLastMsg(last?.text || "");
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     if (user?._id) {
+      fetchMyConversations();
       fetchMyGroups();
+      fetchAiPreview();
     }
   }, [user?._id]);
 
@@ -149,6 +192,7 @@ const Sidebar = () => {
         <div className="flex flex-col items-center gap-2">
           <NavLink
             to="/home"
+            end
             className={({ isActive }) =>
               `w-10 h-10 flex justify-center items-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors ${
                 isActive ? "bg-slate-200 dark:bg-slate-800 text-teal-600 dark:text-teal-400" : ""
@@ -157,6 +201,19 @@ const Sidebar = () => {
             title="Chat"
           >
             <IoChatbubbleEllipses size={22} />
+          </NavLink>
+          <NavLink
+            to="/home/ai"
+            className={({ isActive }) =>
+              `w-10 h-10 flex justify-center items-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-all relative ${
+                isActive
+                  ? "bg-gradient-to-tr from-indigo-500/20 to-teal-500/20 text-teal-600 dark:text-teal-400 border border-teal-500/30"
+                  : "text-slate-600 dark:text-slate-300"
+              }`
+            }
+            title="Gemini AI Assistant"
+          >
+            <HiSparkles size={20} className="text-teal-600 dark:text-teal-400" />
           </NavLink>
           <button
             className="w-10 h-10 flex justify-center items-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors"
@@ -257,11 +314,60 @@ const Sidebar = () => {
               </span>
             )}
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("ai")}
+            className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+              activeTab === "ai"
+                ? "bg-gradient-to-r from-teal-600 to-indigo-600 text-white shadow-xs"
+                : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <HiSparkles size={13} className={activeTab === "ai" ? "text-white" : "text-teal-500"} />
+            <span>AI Bot</span>
+          </button>
         </div>
 
         {/* List */}
         <div className="flex-1 overflow-x-hidden overflow-y-auto scrollbar px-2 py-2">
-          {currentItems.length === 0 && (
+          {/* Pinned Gemini AI Assistant Item */}
+          {(activeTab === "all" || activeTab === "direct" || activeTab === "ai") && (
+            <NavLink
+              to="/home/ai"
+              className={({ isActive }) =>
+                `flex items-center gap-3 p-2.5 my-1 rounded-xl transition-all cursor-pointer relative overflow-hidden group ${
+                  isActive
+                    ? "bg-gradient-to-r from-teal-50/90 to-indigo-50/50 dark:from-slate-800 dark:to-slate-800/80 border-l-4 border-teal-500 shadow-sm"
+                    : "hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                }`
+              }
+            >
+              <div className="relative flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-teal-500/20 group-hover:scale-105 transition-transform">
+                  <HiSparkles size={20} />
+                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full"></span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-1.5 truncate">
+                    <span>Gemini AI</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-gradient-to-r from-teal-600 to-indigo-600 text-white font-medium">
+                      AI Bot
+                    </span>
+                  </h3>
+                  <span className="text-[10px] text-teal-600 dark:text-teal-400 font-medium">
+                    Online
+                  </span>
+                </div>
+                <p className="text-slate-500 dark:text-slate-400 text-xs truncate mt-0.5">
+                  {aiLastMsg || "Ask anything with Gemini AI..."}
+                </p>
+              </div>
+            </NavLink>
+          )}
+
+          {currentItems.length === 0 && activeTab !== "ai" && (
             <div className="mt-12 text-center px-4">
               <div className="flex justify-center items-center my-4 text-slate-400 dark:text-slate-500">
                 <FiArrowUpLeft size={44} />

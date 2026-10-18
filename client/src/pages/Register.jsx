@@ -5,6 +5,7 @@ import uploadFile from "../helper/Uploadfile";
 import axios from 'axios';
 import toast from "react-hot-toast";
 import { Link, useNavigate } from "react-router-dom";
+import { BACKEND_URL } from "../helper/apiUrl";
 
 const Register = () => {
   const [name, setName] = useState("");
@@ -14,7 +15,7 @@ const Register = () => {
   const [photo, setPhoto] = useState(null);
   const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
-  const urls = "http://localhost:3000/api/user/register";
+  const urls = `${BACKEND_URL}/api/user/register`;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
