@@ -7,11 +7,13 @@ import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { BACKEND_URL } from "../helper/apiUrl";
+import MediaModal from "./MediaModal";
 
 const GroupInfoModal = ({ group, onClose, onGroupUpdated }) => {
   const currentUser = useSelector((state) => state?.user);
   const navigate = useNavigate();
   const [leaving, setLeaving] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   const handleLeaveGroup = async () => {
     if (!window.confirm(`Are you sure you want to leave ${group?.name}?`)) return;
@@ -57,7 +59,9 @@ const GroupInfoModal = ({ group, onClose, onGroupUpdated }) => {
             <img
               src={group.profile_pic}
               alt={group.name}
-              className="w-20 h-20 rounded-2xl object-cover shadow-md mb-2"
+              onClick={() => setShowPhotoModal(true)}
+              className="w-20 h-20 rounded-2xl object-cover shadow-md mb-2 cursor-pointer hover:scale-105 transition-transform"
+              title="Click to view full screen"
             />
           ) : (
             <div className="w-20 h-20 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shadow-inner mb-2">
@@ -124,6 +128,18 @@ const GroupInfoModal = ({ group, onClose, onGroupUpdated }) => {
           </button>
         </div>
       </div>
+
+      {showPhotoModal && (
+        <MediaModal
+          isOpen={showPhotoModal}
+          onClose={() => setShowPhotoModal(false)}
+          media={{
+            url: group?.profile_pic,
+            type: "image",
+            text: group?.name,
+          }}
+        />
+      )}
     </div>
   );
 };

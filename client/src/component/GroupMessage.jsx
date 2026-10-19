@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useSelector } from "react-redux";
 import { Link, useParams } from "react-router-dom";
-import { FaAngleLeft, FaPlus, FaImage, FaVideo, FaUsers } from "react-icons/fa6";
+import { FaAngleLeft, FaPlus, FaImage, FaVideo, FaUsers, FaPlay } from "react-icons/fa6";
+import { FiMaximize2 } from "react-icons/fi";
 import { HiDotsVertical } from "react-icons/hi";
 import { IoClose } from "react-icons/io5";
 import { IoMdSend } from "react-icons/io";
@@ -10,6 +11,7 @@ import Avatar from "./Avatar";
 import uploadFile from "../helper/Uploadfile";
 import Loading from "./Loading";
 import GroupInfoModal from "./GroupInfoModal";
+import MediaModal from "./MediaModal";
 
 const GroupMessage = () => {
   const { groupId } = useParams();
@@ -21,6 +23,55 @@ const GroupMessage = () => {
   const [loading, setLoading] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+
+  const [selectedMedia, setSelectedMedia] = useState(null);
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+
+  // Collect all media messages for gallery browsing in group
+  const mediaList = useMemo(() => {
+    const list = [];
+    allMessages?.forEach((msg) => {
+      const senderName =
+        typeof msg.msgByUserId === "object"
+          ? msg.msgByUserId?.name
+          : groupData?.members?.find((m) => m._id === msg.msgByUserId)?.name;
+
+      if (msg?.imageUrl) {
+        list.push({
+          url: msg.imageUrl,
+          type: "image",
+          text: msg.text,
+          createdAt: msg.createdAt,
+          sender: senderName,
+          _id: msg._id,
+        });
+      }
+      if (msg?.videoUrl) {
+        list.push({
+          url: msg.videoUrl,
+          type: "video",
+          text: msg.text,
+          createdAt: msg.createdAt,
+          sender: senderName,
+          _id: msg._id,
+        });
+      }
+    });
+    return list;
+  }, [allMessages, groupData]);
+
+  const handleOpenMedia = (mediaItem) => {
+    const index = mediaList.findIndex((m) => m.url === mediaItem.url);
+    if (index !== -1) {
+      setCurrentMediaIndex(index);
+      setSelectedMedia(mediaList[index]);
+    } else {
+      setCurrentMediaIndex(0);
+      setSelectedMedia(mediaItem);
+    }
+    setIsMediaModalOpen(true);
+  };
 
   const [message, setMessage] = useState({
     text: "",
@@ -206,18 +257,62 @@ const GroupMessage = () => {
 
                   {/* Media Content */}
                   {msg?.imageUrl && (
-                    <img
-                      src={msg.imageUrl}
-                      alt="Shared media"
-                      className="max-h-64 w-full object-cover rounded-lg mb-1.5"
-                    />
+                    <div
+                      onClick={() =>
+                        handleOpenMedia({
+                          url: msg.imageUrl,
+                          type: "image",
+                          text: msg.text,
+                          createdAt: msg.createdAt,
+                          sender: senderObj?.name,
+                        })
+                      }
+                      className="group relative cursor-pointer overflow-hidden rounded-lg mb-1.5"
+                      title="Click to view full screen"
+                    >
+                      <img
+                        src={msg.imageUrl}
+                        alt="Shared media"
+                        className="max-h-64 sm:max-h-80 w-full object-cover rounded-lg transition-transform duration-300 group-hover:scale-[1.02]"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-all duration-200 flex items-center justify-center pointer-events-none">
+                        <div className="opacity-0 group-hover:opacity-100 transition-all duration-200 transform scale-75 group-hover:scale-100 bg-black/60 backdrop-blur-xs text-white p-2.5 rounded-full shadow-lg">
+                          <FiMaximize2 size={18} />
+                        </div>
+                      </div>
+                    </div>
                   )}
                   {msg?.videoUrl && (
-                    <video
-                      src={msg.videoUrl}
-                      className="max-h-64 w-full object-cover rounded-lg mb-1.5"
-                      controls
-                    />
+                    <div
+                      onClick={() =>
+                        handleOpenMedia({
+                          url: msg.videoUrl,
+                          type: "video",
+                          text: msg.text,
+                          createdAt: msg.createdAt,
+                          sender: senderObj?.name,
+                        })
+                      }
+                      className="group relative cursor-pointer overflow-hidden rounded-lg mb-1.5 bg-black/40"
+                      title="Click to view full screen"
+                    >
+                      <video
+                        src={msg.videoUrl}
+                        className="max-h-64 sm:max-h-80 w-full object-cover rounded-lg"
+                        preload="metadata"
+                      />
+                      {/* Sleek Play & Fullscreen overlay */}
+                      <div className="absolute inset-0 bg-black/25 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-full bg-teal-600/90 group-hover:bg-teal-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-200 pl-0.5">
+                          <FaPlay size={16} />
+                        </div>
+                        <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-xs text-white text-[11px] font-medium px-2 py-1 rounded-md flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                          <FiMaximize2 size={12} />
+                          <span>Full screen</span>
+                        </div>
+                      </div>
+                    </div>
                   )}
 
                   {/* Text Message */}
@@ -243,41 +338,77 @@ const GroupMessage = () => {
 
         {/* Upload previews */}
         {message?.imageUrl && (
-          <div className="w-full sticky bottom-0 bg-slate-900/60 backdrop-blur-xs flex justify-center items-center rounded-xl p-3 my-2">
-            <div className="relative bg-white dark:bg-slate-800 p-2 rounded-xl shadow-lg">
+          <div className="w-full sticky bottom-0 bg-slate-900/60 backdrop-blur-xs flex justify-center items-center rounded-xl p-3 my-2 z-10">
+            <div className="relative bg-white dark:bg-slate-800 p-2 rounded-xl shadow-lg group">
               <button
                 type="button"
-                className="absolute top-2 right-2 bg-black/60 hover:bg-red-600 text-white p-1 rounded-full cursor-pointer transition-colors"
+                className="absolute top-2 right-2 bg-black/60 hover:bg-red-600 text-white p-1 rounded-full cursor-pointer transition-colors z-10"
                 onClick={() => setMessage((prev) => ({ ...prev, imageUrl: "" }))}
               >
                 <IoClose size={18} />
               </button>
-              <img
-                src={message.imageUrl}
-                alt="Upload preview"
-                className="aspect-square w-48 h-48 object-cover rounded-lg"
-              />
+              <div
+                onClick={() =>
+                  handleOpenMedia({
+                    url: message.imageUrl,
+                    type: "image",
+                    text: message.text,
+                  })
+                }
+                className="cursor-pointer relative overflow-hidden rounded-lg"
+                title="Click to view full screen"
+              >
+                <img
+                  src={message.imageUrl}
+                  alt="Upload preview"
+                  className="aspect-square w-48 h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-200"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center pointer-events-none">
+                  <div className="opacity-0 group-hover:opacity-100 bg-black/60 text-white p-2 rounded-full transition-opacity">
+                    <FiMaximize2 size={16} />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {message?.videoUrl && (
-          <div className="w-full sticky bottom-0 bg-slate-900/60 backdrop-blur-xs flex justify-center items-center rounded-xl p-3 my-2">
-            <div className="relative bg-white dark:bg-slate-800 p-2 rounded-xl shadow-lg">
+          <div className="w-full sticky bottom-0 bg-slate-900/60 backdrop-blur-xs flex justify-center items-center rounded-xl p-3 my-2 z-10">
+            <div className="relative bg-white dark:bg-slate-800 p-2 rounded-xl shadow-lg group">
               <button
                 type="button"
-                className="absolute top-2 right-2 bg-black/60 hover:bg-red-600 text-white p-1 rounded-full cursor-pointer transition-colors"
+                className="absolute top-2 right-2 bg-black/60 hover:bg-red-600 text-white p-1 rounded-full cursor-pointer transition-colors z-10"
                 onClick={() => setMessage((prev) => ({ ...prev, videoUrl: "" }))}
               >
                 <IoClose size={18} />
               </button>
-              <video
-                src={message.videoUrl}
-                className="aspect-square w-48 h-48 object-cover rounded-lg"
-                controls
-                muted
-                autoPlay
-              />
+              <div
+                onClick={() =>
+                  handleOpenMedia({
+                    url: message.videoUrl,
+                    type: "video",
+                    text: message.text,
+                  })
+                }
+                className="cursor-pointer relative overflow-hidden rounded-lg"
+                title="Click to view full screen"
+              >
+                <video
+                  src={message.videoUrl}
+                  className="aspect-square w-48 h-48 object-cover rounded-lg"
+                  muted
+                />
+                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/45 transition-colors flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-teal-600 text-white flex items-center justify-center shadow-lg pl-0.5 group-hover:scale-110 transition-transform">
+                    <FaPlay size={14} />
+                  </div>
+                  <div className="absolute top-2 left-2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <FiMaximize2 size={11} />
+                    <span>Full screen</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -360,6 +491,19 @@ const GroupMessage = () => {
       {showInfoModal && (
         <GroupInfoModal group={groupData} onClose={() => setShowInfoModal(false)} />
       )}
+
+      {/* Full-screen Media Modal */}
+      <MediaModal
+        isOpen={isMediaModalOpen}
+        onClose={() => setIsMediaModalOpen(false)}
+        media={selectedMedia}
+        mediaList={mediaList}
+        currentIndex={currentMediaIndex}
+        onNavigate={(newIndex) => {
+          setCurrentMediaIndex(newIndex);
+          setSelectedMedia(mediaList[newIndex]);
+        }}
+      />
     </div>
   );
 };
