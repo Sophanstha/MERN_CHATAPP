@@ -18,8 +18,10 @@ const Logout = ({ onClose, onLogout }) => {
      if(!res){
       console.log("error in logout");
      } 
+         localStorage.removeItem("token");
+         localStorage.removeItem("user");
          dispatch(logout());
-         toast.success("you have been logout ")
+         toast.success("You have been logged out");
          nav("/");
 
      } catch (error) {

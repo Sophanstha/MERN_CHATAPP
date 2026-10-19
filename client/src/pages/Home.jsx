@@ -17,19 +17,54 @@ const Home = () => {
 
   const fecthUserData = async()=>{
     const urls = `${BACKEND_URL}/api/user/user-detail`;
+    const token = localStorage.getItem('token');
+
+    // If no token exists at all, redirect to login
+    if (!token) {
+      dispatch(logout());
+      navigate('/');
+      return;
+    }
+
+    // Immediately restore cached user from localStorage if available
+    try {
+      const cached = localStorage.getItem('user');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?._id) {
+          dispatch(setUser(parsed));
+        }
+      }
+    } catch (e) {
+      console.error("Error reading cached user:", e);
+    }
+
     try {
       const response = await axios({
         method: 'GET',
         url: urls,
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
         withCredentials: true
-      })
-      dispatch(setUser(response.data.data))
-      if(response.data.data.logout){
+      });
+
+      if (response.data?.data && response.data.data._id) {
+        dispatch(setUser(response.data.data));
+        localStorage.setItem('user', JSON.stringify(response.data.data));
+      } else if (response.data?.data?.logout && !localStorage.getItem('token')) {
         dispatch(logout());
         navigate('/');
       }
     } catch (error) {
-      console.error("error in response of fetch data in home",error);
+      console.error("error in response of fetch data in home", error);
+      // Only logout if 401 Unauthorized explicitly returned
+      if (error?.response?.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        dispatch(logout());
+        navigate('/');
+      }
     }
   }
 
@@ -39,9 +74,12 @@ const Home = () => {
 
   // socket connection 
   useEffect(()=>{
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
     const socket = io(BACKEND_URL,{
       auth : {
-        token : localStorage.getItem('token')
+        token : token
       }
     });
     socket.on("onlineUser",(data)=>{

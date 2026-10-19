@@ -13,6 +13,18 @@ import AiMessage from './component/AiMessage.jsx'
 import AuthLayout from './Layout/AuthLayout.jsx'
 import { Provider } from 'react-redux'
 import { store } from './redux/store.js'
+import axios from 'axios'
+
+// Automatically attach Bearer token and credentials to all outgoing API calls
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  config.withCredentials = true;
+  return config;
+});
 
 const router = createBrowserRouter(
   createRoutesFromElements(
