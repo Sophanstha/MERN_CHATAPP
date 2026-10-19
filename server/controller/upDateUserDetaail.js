@@ -3,7 +3,13 @@ import { getUserDetailFromToken } from "../helper/getUserDetailFromToken.js";
 
 export const updateUserDetail = async (req, res) => {
     try {
-        const token = req.cookies.token || "";
+        const token =
+            req.cookies?.token ||
+            (req.headers.authorization?.startsWith("Bearer ")
+                ? req.headers.authorization.split(" ")[1]
+                : req.headers.authorization) ||
+            req.headers?.token ||
+            "";
         const userDetail = await getUserDetailFromToken(token);
 
         if (!userDetail || userDetail.logout) {

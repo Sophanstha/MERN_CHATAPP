@@ -136,12 +136,13 @@ export const checkPassword = async (req, res) => {
 
         // console.log("Generated token:", token); // Debugging
 
-        // ✅ Fix cookie options
+        // ✅ Fix cookie options for cross-site and HTTPS environments
+        const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https";
         const cookieOption = {
             httpOnly: true, 
-            secure: process.env.NODE_ENV === "production" ? true : false, // Use false in development
-            sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax", // Prevent cross-site issues
-            maxAge: 3600000, // 1 hour expiry
+            secure: isHttps || process.env.NODE_ENV === "production",
+            sameSite: isHttps || process.env.NODE_ENV === "production" ? "None" : "Lax",
+            maxAge: 365 * 24 * 60 * 60 * 1000,
         };
 
         // ✅ Ensure setting cookie before sending JSON response

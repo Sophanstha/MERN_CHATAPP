@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { BACKEND_URL } from '../helper/apiUrl';
 
 const AdminDetail = () => {
   const [admins, setAdmins] = useState([]);
-  const url = "http://localhost:3000/api/Admin/getAllAdmin";
+  const url = `${BACKEND_URL}/api/Admin/getAllAdmin`;
 
   useEffect(() => {
     const fetchAdmins = async () => {

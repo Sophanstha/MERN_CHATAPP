@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { BACKEND_URL } from '../helper/apiUrl';
 
 const ViewUser = () => {
   const { id } = useParams();
@@ -14,7 +15,7 @@ const ViewUser = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`http://localhost:3000/api/Admin/singleinfo/${id}`);
+        const response = await axios.get(`${BACKEND_URL}/api/Admin/singleinfo/${id}`);
         setData(response.data);
         setLoading(false);
       } catch (err) {
@@ -29,7 +30,7 @@ const ViewUser = () => {
 
   const handleDelete = async () => {
     try {
-      await axios.post(`http://localhost:3000/api/Admin/deleteuser/${id}`);
+      await axios.post(`${BACKEND_URL}/api/Admin/deleteuser/${id}`);
       toast.success("User deleted successfully");
       navigate('/dashboard',{
         state: { userinfo: datas }

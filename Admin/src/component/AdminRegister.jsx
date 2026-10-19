@@ -5,6 +5,7 @@ import uploadFile from "../helper/Uploadfile";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { BACKEND_URL } from "../helper/apiUrl";
 
 const AdminRegister = () => {
   const [name, setName] = useState("");
@@ -13,7 +14,7 @@ const AdminRegister = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [photo, setPhoto] = useState(null);
   const navigate = useNavigate();
-  const url = "http://localhost:3000/api/Admin/register";
+  const url = `${BACKEND_URL}/api/Admin/register`;
 
   const handleSubmit = async (e) => {
     e.preventDefault();

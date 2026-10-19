@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import axios from "axios";
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import { BACKEND_URL } from '../helper/apiUrl';
 
 const UserData = ({data}) => {
   const [userdata, setUserdatas] = useState([]);
-  const url = "http://localhost:3000/api/Admin/getAlluser";
+  const url = `${BACKEND_URL}/api/Admin/getAlluser`;
   const nav = useNavigate();
   useEffect(() => {
     const fetchData = async () => {

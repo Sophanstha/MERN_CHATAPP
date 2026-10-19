@@ -3,12 +3,13 @@ import { toast } from "react-toastify";
 import axios from "axios";
 import { data, useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { BACKEND_URL } from "../helper/apiUrl";
 
 const Adminlogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const url = "http://localhost:3000/api/Admin/login";
+  const url = `${BACKEND_URL}/api/Admin/login`;
   const navigate = useNavigate();
 const handleSubmit = async (e) => {
   e.preventDefault();
