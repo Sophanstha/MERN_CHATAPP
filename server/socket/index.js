@@ -47,66 +47,98 @@ const io = new Server(server, {
   cors: corsOptions,
 });
 
+io.use(async (socket, next) => {
+  try {
+    const cookieToken = socket.handshake?.headers?.cookie?.match(/token=([^;]+)/)?.[1];
+    const token = socket.handshake?.auth?.token || cookieToken || "";
+    if (token) {
+      const u = await getUserDetailFromToken(token);
+      if (u?._id) {
+        socket.user = u;
+      }
+    }
+    next();
+  } catch (err) {
+    next();
+  }
+});
+
 const onlineUser = new Set();
 io.on("connection", async (socket) => {
-  const cookieToken = socket.handshake?.headers?.cookie?.match(/token=([^;]+)/)?.[1];
-  const token = socket.handshake?.auth?.token || cookieToken || "";
-  const user = await getUserDetailFromToken(token);
+  let user = socket.user;
+  if (!user?._id) {
+    const cookieToken = socket.handshake?.headers?.cookie?.match(/token=([^;]+)/)?.[1];
+    const token = socket.handshake?.auth?.token || cookieToken || "";
+    if (token) {
+      user = await getUserDetailFromToken(token);
+      if (user?._id) socket.user = user;
+    }
+  }
+
+  const getSocketUser = async () => {
+    if (socket.user?._id) return socket.user;
+    if (user?._id) return user;
+    const cookieToken = socket.handshake?.headers?.cookie?.match(/token=([^;]+)/)?.[1];
+    const token = socket.handshake?.auth?.token || cookieToken || "";
+    if (token) {
+      const u = await getUserDetailFromToken(token);
+      if (u?._id) {
+        socket.user = u;
+        return u;
+      }
+    }
+    return user || null;
+  };
+
   if (user?._id) {
     socket.join(user._id.toString());
     onlineUser.add(user._id.toString());
     io.emit("onlineUser", Array.from(onlineUser));
 
-    // Send initial conversations to connected client
-    try {
-      const convs = await getConversion(user._id.toString());
-      socket.emit("conversion", convs);
-    } catch (e) {
-      console.error("Error sending initial conversions:", e);
-    }
+    // Send initial conversations to connected client (non-blocking)
+    getConversion(user._id.toString())
+      .then((convs) => socket.emit("conversion", convs))
+      .catch((e) => console.error("Error sending initial conversions:", e));
 
-    // Auto-join group rooms for this user
-    try {
-      const userGroups = await Group.find({ members: user._id }).select("_id");
-      userGroups.forEach((g) => {
-        socket.join(g._id.toString());
-      });
-    } catch (e) {
-      console.error("Error auto-joining groups:", e);
-    }
+    // Auto-join group rooms for this user (non-blocking)
+    Group.find({ members: user._id })
+      .select("_id")
+      .then((userGroups) => {
+        userGroups.forEach((g) => socket.join(g._id.toString()));
+      })
+      .catch((e) => console.error("Error auto-joining groups:", e));
   }
 
   socket.on("message-page", async (userId) => {
-    // console.log("message-page",userId);
+    const currentUser = (await getSocketUser()) || user;
     const userDetail = await User.findById(userId).select("-password");
     const payload = {
       _id: userDetail?._id,
       name: userDetail?.name,
       email: userDetail?.email,
       profilePic: userDetail?.profile_pic,
-      online: onlineUser.has(userId),
+      online: onlineUser.has(userId?.toString()),
     };
     socket.emit("message-user", payload);
-    // getPrevious message ;
-  
-     const getConversationMessage = await Conversation.findOne({
-    "$or": [
-      { sender: user?._id, receiver: userId },
-      { sender: userId, receiver: user?._id }
-    ]
-  }).populate('messages').sort({ updatedAt: -1 });
 
-  // Filter out messages from blocked users
-  const userBlocked = (user?.blockedUsers || []).map(id => id.toString());
-  const receiverUser = await User.findById(userId);
-  const receiverBlocked = (receiverUser?.blockedUsers || []).map(id => id.toString());
+    const getConversationMessage = await Conversation.findOne({
+      $or: [
+        { sender: currentUser?._id, receiver: userId },
+        { sender: userId, receiver: currentUser?._id }
+      ]
+    }).populate('messages').sort({ updatedAt: -1 });
 
-  const filteredMessages = getConversationMessage?.messages?.filter(msg => {
-    const msgSenderId = msg?.msgByUserId?.toString();
-    return !userBlocked.includes(msgSenderId) && !receiverBlocked.includes(user?._id?.toString());
-  }) || [];
+    // Filter out messages from blocked users
+    const userBlocked = (currentUser?.blockedUsers || []).map(id => id.toString());
+    const receiverUser = await User.findById(userId);
+    const receiverBlocked = (receiverUser?.blockedUsers || []).map(id => id.toString());
 
-  socket.emit("message", filteredMessages);
+    const filteredMessages = getConversationMessage?.messages?.filter(msg => {
+      const msgSenderId = msg?.msgByUserId?.toString();
+      return !userBlocked.includes(msgSenderId) && !receiverBlocked.includes(currentUser?._id?.toString());
+    }) || [];
+
+    socket.emit("message", filteredMessages);
   });
 
   // //
@@ -225,40 +257,47 @@ io.on("connection", async (socket) => {
 
   // handleeSibeBar
   socket.on("sidebar", async (curretId) => {
-    const targetId = curretId || user?._id?.toString();
+    const currentUser = (await getSocketUser()) || user;
+    const targetId = curretId || currentUser?._id?.toString();
     if (targetId) {
       const conversion = await getConversion(targetId);
       socket.emit("conversion", conversion);
     }
   });
+
   // handleSeenUser
   socket.on("seen", async (msgByUserId) => {
+    const currentUser = (await getSocketUser()) || user;
+    if (!currentUser?._id || !msgByUserId) return;
+
     let conversation = await Conversation.findOne({
       $or: [
-        { sender: user?._id, receiver: msgByUserId },
-        { sender: msgByUserId, receiver: user?._id },
+        { sender: currentUser._id, receiver: msgByUserId },
+        { sender: msgByUserId, receiver: currentUser._id },
       ],
     });
 
     const conversationMessageId = conversation?.messages || [];
 
-    const updateMessages = await Message.updateMany(
+    await Message.updateMany(
       { _id: { $in: conversationMessageId }, msgByUserId: msgByUserId },
       { $set: { seen: true } }
     );
 
     //send conversation
-    const conversationSender = await getConversion(user?._id?.toString());
+    const conversationSender = await getConversion(currentUser._id.toString());
     const conversationReceiver = await getConversion(msgByUserId);
 
-    io.to(user?._id?.toString()).emit("conversion", conversationSender);
+    io.to(currentUser._id.toString()).emit("conversion", conversationSender);
     io.to(msgByUserId).emit("conversion", conversationReceiver);
-    io.to(user?._id?.toString()).emit("conversation", conversationSender);
+    io.to(currentUser._id.toString()).emit("conversation", conversationSender);
     io.to(msgByUserId).emit("conversation", conversationReceiver);
   });
+
   // Handle block user
   socket.on("block-user", async (blockedUserId) => {
-    const currentUserId = user?._id?.toString();
+    const currentUser = (await getSocketUser()) || user;
+    const currentUserId = currentUser?._id?.toString();
     if (!currentUserId || !blockedUserId) return;
 
     // Block the user
@@ -277,7 +316,8 @@ io.on("connection", async (socket) => {
 
   // Handle unblock user
   socket.on("unblock-user", async (unblockedUserId) => {
-    const currentUserId = user?._id?.toString();
+    const currentUser = (await getSocketUser()) || user;
+    const currentUserId = currentUser?._id?.toString();
     if (!currentUserId || !unblockedUserId) return;
 
     await User.findByIdAndUpdate(currentUserId, {
@@ -388,8 +428,9 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("disconnect", () => {
-    if (user?._id) {
-      onlineUser.delete(user._id.toString());
+    const currentUser = socket.user || user;
+    if (currentUser?._id) {
+      onlineUser.delete(currentUser._id.toString());
       io.emit("onlineUser", Array.from(onlineUser));
     }
     console.log("Client disconnected", socket.id);

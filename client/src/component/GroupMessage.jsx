@@ -84,7 +84,9 @@ const GroupMessage = () => {
   // Load group and listen to socket
   useEffect(() => {
     if (socketConnection && groupId) {
-      socketConnection.emit("group-page", groupId);
+      const requestGroupData = () => {
+        socketConnection.emit("group-page", groupId);
+      };
 
       const handleGroupData = (data) => {
         setGroupData(data);
@@ -102,10 +104,17 @@ const GroupMessage = () => {
       socketConnection.on("group-messages", handleGroupMessages);
       socketConnection.on("group-message", handleNewMessage);
 
+      // Request group data immediately
+      requestGroupData();
+
+      // In case socket is currently connecting or reconnects after refresh
+      socketConnection.on("connect", requestGroupData);
+
       return () => {
         socketConnection.off("group-data", handleGroupData);
         socketConnection.off("group-messages", handleGroupMessages);
         socketConnection.off("group-message", handleNewMessage);
+        socketConnection.off("connect", requestGroupData);
       };
     }
   }, [socketConnection, groupId]);

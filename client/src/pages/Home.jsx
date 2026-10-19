@@ -52,7 +52,9 @@ const Home = () => {
       if (response.data?.data && response.data.data._id) {
         dispatch(setUser(response.data.data));
         localStorage.setItem('user', JSON.stringify(response.data.data));
-      } else if (response.data?.data?.logout && !localStorage.getItem('token')) {
+      } else if (response.data?.data?.logout) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         dispatch(logout());
         navigate('/');
       }

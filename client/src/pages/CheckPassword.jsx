@@ -12,16 +12,34 @@ const CheckPassword = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation();
-  const data = location.state;
+  const [data, setData] = useState(() => {
+    if (location.state?.name) return location.state;
+    try {
+      const saved = sessionStorage.getItem("pendingUser");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
   const userId = data?._id; 
   const dispatch = useDispatch();
 
   useEffect(() => {
-    if (!data?.name) {
-      navigate("/");
+    if (location.state?.name) {
+      setData(location.state);
+      sessionStorage.setItem("pendingUser", JSON.stringify(location.state));
+    } else {
+      const saved = sessionStorage.getItem("pendingUser");
+      if (saved) {
+        try {
+          setData(JSON.parse(saved));
+        } catch (e) {
+          navigate("/");
+        }
+      } else {
+        navigate("/");
+      }
     }
-  }, [data, navigate]);
+  }, [location.state, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,6 +54,7 @@ const CheckPassword = () => {
 
       toast.success(response.data.message);
       if (response.data.success) {
+        sessionStorage.removeItem("pendingUser");
         dispatch(setToken(response?.data?.token));
         localStorage.setItem("token", response?.data?.token);
         if (data?._id) {

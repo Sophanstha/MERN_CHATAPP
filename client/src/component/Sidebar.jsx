@@ -75,14 +75,22 @@ const Sidebar = () => {
   // Fetch 1-to-1 conversations via socket
   useEffect(() => {
     if (socketConnection) {
+      const requestSidebar = () => {
+        if (user?._id) {
+          socketConnection.emit("sidebar", user._id);
+        }
+      };
+
       if (user?._id) {
-        socketConnection.emit("sidebar", user._id);
+        requestSidebar();
+        socketConnection.on("connect", requestSidebar);
       }
 
       socketConnection.on("conversion", formatAndSetConversations);
       socketConnection.on("conversation", formatAndSetConversations);
 
       return () => {
+        socketConnection.off("connect", requestSidebar);
         socketConnection.off("conversion", formatAndSetConversations);
         socketConnection.off("conversation", formatAndSetConversations);
       };

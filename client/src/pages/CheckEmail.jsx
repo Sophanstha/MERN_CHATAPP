@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import chatLogo from "../assets/chat-logo.png";
 import axios from 'axios';
 import toast from "react-hot-toast";
@@ -8,6 +8,14 @@ import { BACKEND_URL } from "../helper/apiUrl";
 const CheckEmail = () => {
   const [email, setEmail] = useState("");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      navigate("/home");
+    }
+  }, [navigate]);
+
   const handleSubmit = async (e) => {
     const urls = `${BACKEND_URL}/api/user/email`;
     e.preventDefault();
@@ -17,6 +25,7 @@ const CheckEmail = () => {
 
       toast.success(response.data.message)
       if(response.data.success){
+        sessionStorage.setItem("pendingUser", JSON.stringify(response?.data?.data));
         setEmail("");       
         navigate("/checkpassword",{
           state: response?.data?.data

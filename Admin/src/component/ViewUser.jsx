@@ -11,7 +11,14 @@ const ViewUser = () => {
   const [loading, setLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const location = useLocation();
-  const datas = location.state?.userinfo;
+  const datas = location.state?.userinfo || (() => {
+    try {
+      const saved = localStorage.getItem('adminUser');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  })();
   useEffect(() => {
     const fetchData = async () => {
       try {

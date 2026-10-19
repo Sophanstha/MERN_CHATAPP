@@ -98,22 +98,36 @@ const Message = () => {
     setImageAndVideo(false);
   }
   useEffect(() => {
-    if (socketConnection) {
-      socketConnection.emit("message-page", param?.userId);
+    if (socketConnection && param?.userId) {
+      const requestChatData = () => {
+        socketConnection.emit("message-page", param.userId);
+        socketConnection.emit("seen", param.userId);
+      };
 
-      socketConnection.on("message-user", (data) => {
+      const handleMessageUser = (data) => {
         setDataUser(data);
-      });
-      socketConnection.emit('seen',param?.userId)
+      };
 
-      socketConnection.on("message",(data)=>{ 
-        console.log("message-data",data);
-        setAllmessage(data);
-      })
+      const handleMessage = (data) => {
+        setAllmessage(data || []);
+      };
 
+      socketConnection.on("message-user", handleMessageUser);
+      socketConnection.on("message", handleMessage);
 
+      // Request chat data immediately
+      requestChatData();
+
+      // In case socket is currently connecting or reconnects after refresh
+      socketConnection.on("connect", requestChatData);
+
+      return () => {
+        socketConnection.off("message-user", handleMessageUser);
+        socketConnection.off("message", handleMessage);
+        socketConnection.off("connect", requestChatData);
+      };
     }
-  }, [socketConnection, param?.userId, user]);
+  }, [socketConnection, param?.userId]);
   // console.log(dataUser);
 
     const handleClearUploadImage = ()=>{

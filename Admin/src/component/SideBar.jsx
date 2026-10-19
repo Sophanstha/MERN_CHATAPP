@@ -2,10 +2,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 const SideBar = ({ data, onSectionChange }) => {
-  const handleLogout = () => {
-    console.log('Logging out...');
-  };
   const navigate = useNavigate();
+  const handleLogout = () => {
+    localStorage.removeItem('adminUser');
+    navigate('/');
+  };
   
 
   return (

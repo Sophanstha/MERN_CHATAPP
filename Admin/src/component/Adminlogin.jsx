@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import axios from "axios";
-import { data, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { BACKEND_URL } from "../helper/apiUrl";
 
@@ -11,9 +11,18 @@ const Adminlogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const url = `${BACKEND_URL}/api/Admin/login`;
   const navigate = useNavigate();
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("adminUser");
+      if (saved && JSON.parse(saved)?._id) {
+        navigate("/dashboard");
+      }
+    } catch (e) {}
+  }, [navigate]);
+
 const handleSubmit = async (e) => {
   e.preventDefault();
-  
 
   if (!email || !password) {
     toast.error("Please enter both email and password");
@@ -28,7 +37,10 @@ const handleSubmit = async (e) => {
       toast.error("Invalid email or password");
     }
     else{
-      toast.success("loggng....")
+      toast.success("loggng....");
+      if (response?.data?.admin) {
+        localStorage.setItem("adminUser", JSON.stringify(response.data.admin));
+      }
       navigate("/dashboard",
         {
           state: {
